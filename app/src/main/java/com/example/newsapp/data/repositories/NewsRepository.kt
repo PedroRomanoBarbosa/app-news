@@ -1,5 +1,6 @@
 package com.example.newsapp.data.repositories
 
+import android.util.Log
 import com.example.domain.models.Article
 import com.example.domain.models.ArticleId
 import com.example.domain.repositories.DomainNewsRepository
@@ -40,11 +41,15 @@ class NewsRepository(
     private val client: ApiClient,
     private val database: NewsAppDatabase,
 ) : DomainNewsRepository {
+    companion object {
+        const val TAG = "NewsRepository"
+    }
+
     override suspend fun loadArticles(): Response<Pair<Int, List<Article>>> {
         val response = runCatching {
             client.getArticles()
         }.getOrNull() ?: run {
-            // TODO
+            Log.d(TAG, "Error retrieving articles")
 
             return Response.Error()
         }
@@ -71,7 +76,7 @@ class NewsRepository(
         val response = runCatching {
             client.getArticles(page)
         }.getOrNull() ?: run {
-            // TODO
+            Log.d(TAG, "Error loading more articles")
 
             return Response.Error()
         }

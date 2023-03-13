@@ -2,7 +2,6 @@ package com.example.newsapp.ui.feed
 
 import android.os.Bundle
 import android.view.LayoutInflater
-import androidx.fragment.app.Fragment
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.isVisible
@@ -11,19 +10,28 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.newsapp.R
 import com.example.newsapp.databinding.FragmentNewsFeedBinding
+import com.example.newsapp.ui.BaseFragment
 import com.example.newsapp.ui.launchArticleDetailsActivity
 import com.example.newsapp.ui.launchNetworkSettings
-import com.example.newsapp.viewmodels.Event
-import com.example.newsapp.viewmodels.NewsFeedNavigation
-import com.example.newsapp.viewmodels.NewsFeedViewModel
+import com.example.newsapp.viewmodels.*
 import com.example.newsapp.viewmodels.NewsFeedViewModel.State
 import com.google.android.material.snackbar.Snackbar
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
 /**
- * TODO
+ * Converts the current [Event] into a string id
  */
-class NewsFeedFragment : Fragment(R.layout.fragment_news_feed) {
+fun Event.toTextId() = when (this) {
+    Event.LoadFailed -> R.string.load_failed
+    Event.RefreshFailed -> R.string.refresh_failed
+    Event.LoadMoreFailed -> R.string.load_more_failed
+    Event.StopRefresh -> throw java.lang.IllegalArgumentException("Invalid event type for event=$this")
+}
+
+/**
+ * Fragment for the news feed
+ */
+class NewsFeedFragment : BaseFragment<NewsFeedNavigation, State>(R.layout.fragment_news_feed) {
     private val binding by lazy { FragmentNewsFeedBinding.inflate(layoutInflater) }
     private val newsListAdapter by lazy {
         NewsListAdapter(
@@ -82,14 +90,15 @@ class NewsFeedFragment : Fragment(R.layout.fragment_news_feed) {
         }
     }
 
-    private fun onScreenNavigation(screenNavigation: NewsFeedNavigation) {
-        when(screenNavigation) {
+    override fun onScreenNavigation(screenNavigation: ScreenNavigation) {
+        when (screenNavigation) {
             is NewsFeedNavigation.ArticleDetails -> {
                 launchArticleDetailsActivity(requireContext(), screenNavigation.id)
             }
             NewsFeedNavigation.NetworkSettings -> {
                 launchNetworkSettings(requireContext())
             }
+            else -> throw IllegalArgumentException("Invalid navigation for this screenNavigation=$screenNavigation")
         }
     }
 
@@ -98,17 +107,15 @@ class NewsFeedFragment : Fragment(R.layout.fragment_news_feed) {
             Event.LoadFailed,
             Event.RefreshFailed,
             Event.LoadMoreFailed -> {
-                Snackbar.make(binding.srLayout, R.string.app_name, Snackbar.LENGTH_LONG)
-                    .setAction(R.string.app_name) {
-                        // Responds to click on the action
-                    }
-                    .show()
+                Snackbar.make(binding.srLayout, event.toTextId(), Snackbar.LENGTH_LONG).show()
             }
-            Event.StopRefresh -> binding.srLayout.isRefreshing = false
+            Event.StopRefresh -> {
+                binding.srLayout.isRefreshing = false
+            }
         }
     }
 
-    private fun onStateChanged(state: State) = with(binding) {
+    override fun onStateChanged(state: State) = with(binding) {
         newsListAdapter.submitList(state.rows)
 
         when {
@@ -137,6 +144,8 @@ class NewsFeedFragment : Fragment(R.layout.fragment_news_feed) {
                 cpiLoading.isVisible = false
                 gpEmpty.isVisible = false
                 clArticleSection.isVisible = true
+
+                vOverlay.isVisible = state.refreshing
 
                 if (state.networkAvailable) {
                     tvBanner.isVisible = false

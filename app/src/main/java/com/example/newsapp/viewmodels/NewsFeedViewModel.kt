@@ -1,5 +1,6 @@
 package com.example.newsapp.viewmodels
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.domain.models.Article
@@ -7,11 +8,13 @@ import com.example.domain.repositories.DomainNewsRepository
 import com.example.domain.repositories.Response
 import com.example.newsapp.INetworkRepository
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Instant
 
+/**
+ * Represents an event issued by [NewsFeedViewModel]
+ */
 enum class Event {
     LoadFailed,
     LoadMoreFailed,
@@ -19,18 +22,25 @@ enum class Event {
     StopRefresh,
 }
 
+/**
+ * News feed flow navigation
+ */
 sealed interface NewsFeedNavigation : ScreenNavigation {
     data class ArticleDetails(val id: String): NewsFeedNavigation
     object NetworkSettings: NewsFeedNavigation
 }
 
 /**
- * TODO
+ * View model responsible for the article feed flow
  */
 class NewsFeedViewModel(
     private val newsRepository: DomainNewsRepository,
     networkRepository: INetworkRepository,
 ) : ViewModel() {
+    companion object {
+        const val TAG = "NewsFeedViewModel"
+    }
+
     private var total = 0
     private var page = 1
     private var localArticlesJob: Job? = null
@@ -49,13 +59,9 @@ class NewsFeedViewModel(
     val state = _state.asStateFlow()
 
     init {
-        // getLocalArticles()
+        Log.d(TAG, "init")
 
-        _state.onEach {
-            println("### STATE ###")
-            println("\tTOTAL: $total, PAGE=$page")
-            println("\tARTICLES: ${it.rows.size}, STATE: $it")
-        }.launchIn(viewModelScope)
+        getLocalArticles()
 
         networkRepository.networkAvailable.onEach { networkAvailable ->
             _state.update { it.copy(networkAvailable = networkAvailable) }
@@ -71,7 +77,7 @@ class NewsFeedViewModel(
     }
 
     private fun getLocalArticles() {
-        println("getLocalArticles")
+        Log.d(TAG, "Fetching local articles")
 
         localArticlesJob = viewModelScope.launch {
             val articles = newsRepository.getLocalArticles()
@@ -83,13 +89,11 @@ class NewsFeedViewModel(
     }
 
     private fun loadRemoteArticles() {
-        println("loadRemoteArticles")
+        Log.d(TAG, "Load remote articles")
 
         _state.update { it.copy(loading = true) }
 
         viewModelScope.launch {
-            delay(3000)
-
             when (val response = newsRepository.loadArticles()) {
                 is Response.Success -> {
                     localArticlesJob?.cancel()
@@ -120,13 +124,11 @@ class NewsFeedViewModel(
     }
 
     fun refresh() {
-        println("refresh")
+        Log.d(TAG, "Refreshing feed")
 
         _state.update { it.copy(refreshing = true) }
 
         viewModelScope.launch {
-            delay(3000)
-
             when (val response = newsRepository.loadArticles()) {
                 is Response.Success -> {
                     localArticlesJob?.cancel()
@@ -155,10 +157,10 @@ class NewsFeedViewModel(
     }
 
     fun loadMore() {
-        println("loadMore")
+        Log.d(TAG, "Loading more articles")
 
         if (_state.value.rows.size >= total || _state.value.loadingMore) {
-            // TODO
+            Log.d(TAG, "Cannot load more articles")
 
             return
         }
@@ -182,7 +184,7 @@ class NewsFeedViewModel(
                     }
                 }
                 is Response.Error -> {
-                    _event.emit(Event.LoadFailed)
+                    _event.emit(Event.LoadMoreFailed)
                 }
             }
 
@@ -191,12 +193,16 @@ class NewsFeedViewModel(
     }
 
     fun onHeadlineClick(id: String) {
+        Log.d(TAG, "headline with id=$id selected")
+
         viewModelScope.launch {
             _navigation.emit(NewsFeedNavigation.ArticleDetails(id))
         }
     }
 
     fun onGoToNetworkSettings() {
+        Log.d(TAG, "navigating to network settings")
+
         viewModelScope.launch {
             _navigation.emit(NewsFeedNavigation.NetworkSettings)
         }
@@ -205,6 +211,24 @@ class NewsFeedViewModel(
     fun retry() {
         loadRemoteArticles()
     }
+
+    private fun Article.toRow() = Row.ArticleRow(
+        url = url,
+        title = title,
+        date = publishDate,
+        imageUrl = imageUrl,
+    )
+
+    /**
+     * State representing the feed screen
+     */
+    data class State(
+        val loading: Boolean = false,
+        val refreshing: Boolean = false,
+        val loadingMore: Boolean = false,
+        val rows: List<Row> = emptyList(),
+        val networkAvailable: Boolean,
+    )
 
     sealed interface Row {
         data class ArticleRow(
@@ -215,19 +239,4 @@ class NewsFeedViewModel(
         ) : Row
         object LoadingRow : Row
     }
-
-    fun Article.toRow() = Row.ArticleRow(
-        url = url,
-        title = title,
-        date = publishDate,
-        imageUrl = imageUrl,
-    )
-
-    data class State(
-        val loading: Boolean = false,
-        val refreshing: Boolean = false,
-        val loadingMore: Boolean = false,
-        val rows: List<Row> = emptyList(),
-        val networkAvailable: Boolean,
-    )
 }

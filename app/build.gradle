@@ -57,14 +57,24 @@ android {
     flavorDimensions 'source'
     productFlavors {
         bbc {
+            applicationId 'com.example.newsapp.bbc'
             dimension 'source'
             buildConfigField 'String', 'SOURCE', '"bbc-news"'
+            buildConfigField 'String', 'COUNTRY', '""'
             resValue 'string', 'app_name', "BBC News"
         }
         reuters {
+            applicationId 'com.example.newsapp.reuters'
             dimension 'source'
             buildConfigField 'String', 'SOURCE', '"reuters"'
+            buildConfigField 'String', 'COUNTRY', '""'
             resValue 'string', 'app_name', "Reuters"
+        }
+        us {
+            applicationId 'com.example.newsapp.us'
+            buildConfigField 'String', 'SOURCE', '"reuters"'
+            buildConfigField 'String', 'COUNTRY', '"us"'
+            resValue 'string', 'app_name', "USA Headlines"
         }
     }
 }

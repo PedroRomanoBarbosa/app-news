@@ -32,9 +32,18 @@ sealed interface Response {
 @SerialName("ok")
 data class ArticlesResponse(val totalResults: Int, val articles: List<Article>) : Response.Success
 
-const val TOP_HEADLINES_END_POINT = "https://newsapi.org/v2/top-headlines"
+private const val TOP_HEADLINES_END_POINT = "https://newsapi.org/v2/top-headlines"
+private const val SOURCE = BuildConfig.SOURCE
+private const val COUNTRY = BuildConfig.COUNTRY
+
+/**
+ * The number of articles by page
+ */
 const val PAGE_SIZE = 10
 
+/**
+ * Client that is responsible for making remote calls to the api
+ */
 class ApiClient(engine: HttpClientEngine) {
     private val httpClient = HttpClient(engine) {
         defaultRequest {
@@ -52,13 +61,21 @@ class ApiClient(engine: HttpClientEngine) {
         }
     }
 
-    suspend fun getArticles() = httpClient.get(
-        //"$TOP_HEADLINES_END_POINT?sources=bbc-news&pageSize=$PAGE_SIZE"
-        "$TOP_HEADLINES_END_POINT?country=us&pageSize=$PAGE_SIZE"
-    )
+    suspend fun getArticles(): HttpResponse {
+        val url = when {
+            COUNTRY.isEmpty() -> "$TOP_HEADLINES_END_POINT?sources=$SOURCE&pageSize=$PAGE_SIZE"
+            else -> "$TOP_HEADLINES_END_POINT?country=$COUNTRY&pageSize=$PAGE_SIZE"
+        }
 
-    suspend fun getArticles(page: Int) = httpClient.get(
-        //"$TOP_HEADLINES_END_POINT?sources=bbc-news&pageSize=$PAGE_SIZE&page=$page"
-        "$TOP_HEADLINES_END_POINT?country=us&pageSize=$PAGE_SIZE&page=$page"
-    )
+        return httpClient.get(url)
+    }
+
+    suspend fun getArticles(page: Int): HttpResponse {
+        val url = when {
+            COUNTRY.isEmpty() -> "$TOP_HEADLINES_END_POINT?sources=$SOURCE&pageSize=$PAGE_SIZE&page=$page"
+            else -> "$TOP_HEADLINES_END_POINT?country=$COUNTRY&pageSize=$PAGE_SIZE&page=$page"
+        }
+
+        return httpClient.get(url)
+    }
 }
